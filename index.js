@@ -3,6 +3,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const pino = require("pino");
+const zlib = require("zlib");
 const {
   default: makeWASocket,
   useMultiFileAuthState,
@@ -24,44 +25,57 @@ app.listen(process.env.PORT || 3000, () =>
   console.log(`[Server] Keep-alive on port ${process.env.PORT || 3000}`)
 );
 
-// ── Session restore from SESSION_ID env var ───────────────────────────────────
 const AUTH_DIR = "/tmp/auth_info";
 
+// ── Restore session — handles both gzip and plain base64 ──────────────────────
 function restoreSession() {
   const SESSION_ID = process.env.SESSION_ID;
   if (!SESSION_ID) {
-    console.log("[Session] No SESSION_ID found in env vars!");
+    console.error("[Session] No SESSION_ID in environment!");
     return false;
   }
 
   try {
-    // Handle both formats: "Gifted~base64data" or plain base64
-    const raw = SESSION_ID.includes("~") ? SESSION_ID.split("~")[1] : SESSION_ID;
-    const decoded = JSON.parse(Buffer.from(raw, "base64").toString("utf-8"));
-
     if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
 
-    // If decoded has file keys (our format)
-    if (typeof decoded === "object" && decoded["creds.json"]) {
-      for (const [filename, content] of Object.entries(decoded)) {
+    // Strip prefix like "Gifted~" or "ARSLAN-MD~"
+    const raw = SESSION_ID.includes("~") ? SESSION_ID.split("~").slice(1).join("~") : SESSION_ID;
+    const buffer = Buffer.from(raw, "base64");
+
+    // Detect gzip magic bytes: 0x1f 0x8b
+    const isGzip = buffer[0] === 0x1f && buffer[1] === 0x8b;
+
+    let decoded;
+    if (isGzip) {
+      console.log("[Session] Detected gzip compressed session...");
+      decoded = zlib.gunzipSync(buffer).toString("utf-8");
+    } else {
+      decoded = buffer.toString("utf-8");
+    }
+
+    const parsed = JSON.parse(decoded);
+
+    // Multi-file format: { "creds.json": "...", "app-state-...": "..." }
+    if (parsed["creds.json"]) {
+      for (const [filename, content] of Object.entries(parsed)) {
         fs.writeFileSync(path.join(AUTH_DIR, filename), content, "utf-8");
       }
-      console.log("[Session] ✅ Multi-file session restored from SESSION_ID");
+      console.log(`[Session] ✅ Restored ${Object.keys(parsed).length} session files`);
       return true;
     }
 
-    // If decoded is creds.json directly (Arslan/Gifted format)
-    fs.writeFileSync(path.join(AUTH_DIR, "creds.json"), JSON.stringify(decoded), "utf-8");
-    console.log("[Session] ✅ Single creds.json restored from SESSION_ID");
+    // Single creds.json format
+    fs.writeFileSync(path.join(AUTH_DIR, "creds.json"), JSON.stringify(parsed), "utf-8");
+    console.log("[Session] ✅ Restored creds.json");
     return true;
+
   } catch (err) {
-    console.error("[Session] Failed to restore session:", err.message);
+    console.error("[Session] Restore failed:", err.message);
     return false;
   }
 }
 
 // ── Bot state ─────────────────────────────────────────────────────────────────
-let botSocket = null;
 let reconnectCount = 0;
 const startTime = Date.now();
 
@@ -76,13 +90,9 @@ function getUptime() {
 // ── Start bot ─────────────────────────────────────────────────────────────────
 async function startBot() {
   try {
-    // Restore session on every startup
     if (!fs.existsSync(path.join(AUTH_DIR, "creds.json"))) {
-      const restored = restoreSession();
-      if (!restored) {
-        console.error("[Bot] Cannot start — no SESSION_ID in environment!");
-        return;
-      }
+      const ok = restoreSession();
+      if (!ok) { console.error("[Bot] No valid session. Exiting."); return; }
     }
 
     const { version } = await fetchLatestBaileysVersion();
@@ -106,23 +116,17 @@ async function startBot() {
       generateHighQualityLinkPreview: false,
     });
 
-    botSocket = sock;
-
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect } = update;
 
-      if (connection === "connecting") {
-        console.log("[Bot] Connecting to WhatsApp...");
-      }
+      if (connection === "connecting") console.log("[Bot] Connecting...");
 
       if (connection === "open") {
-        console.log("[Bot] ✅ Connected to WhatsApp!");
+        console.log("[Bot] ✅ WhatsApp Connected!");
         reconnectCount = 0;
-
-        // Start scheduler 30s after connect
         setTimeout(() => {
           startScheduler(sock);
-          console.log("[Scheduler] ✅ Started — posting every 20 minutes");
+          console.log("[Scheduler] ✅ Started!");
         }, 30000);
       }
 
@@ -130,9 +134,8 @@ async function startBot() {
         stopScheduler();
         const code = lastDisconnect?.error?.output?.statusCode;
         console.log(`[Bot] Disconnected — code: ${code}`);
-
         if (code === DisconnectReason.loggedOut) {
-          console.log("[Bot] Logged out. Restoring session from SESSION_ID...");
+          console.log("[Bot] Logged out — restoring from SESSION_ID...");
           try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch (_) {}
           restoreSession();
           await delay(5000);
@@ -164,7 +167,7 @@ async function startBot() {
     });
 
   } catch (err) {
-    console.error("[Bot] Fatal error:", err.message);
+    console.error("[Bot] Fatal:", err.message);
     reconnectCount++;
     setTimeout(startBot, Math.min(5000 * reconnectCount, 30000));
   }
@@ -173,5 +176,3 @@ async function startBot() {
 console.log("🇵🇰 Pakistan Jobs Bot — Starting...");
 restoreSession();
 startBot();
-
-module.exports = { getUptime };
