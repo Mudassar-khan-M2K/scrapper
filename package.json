@@ -1,0 +1,17 @@
+{
+  "name": "pakistan-jobs-bot",
+  "version": "2.0.0",
+  "description": "Pakistan WhatsApp Jobs Bot — 24/7 Auto Job Alerts",
+  "main": "index.js",
+  "engines": { "node": "20.x" },
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.6.0",
+    "axios": "^1.6.2",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "pino": "^8.17.2"
+  }
+}
