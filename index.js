@@ -27,6 +27,8 @@ app.get("/", (_, res) => res.sendFile(path.join(__dirname, "public", "dashboard.
 
 app.get("/api/stats", (_, res) => {
   const s = getBotStats();
+    const { stats: fmtStats } = require("./formatter");
+    s.messagesHandled = fmtStats.messages;
   res.json({
     status: botConnected ? "online" : "offline",
     uptime: getUptime(),
