@@ -3,7 +3,7 @@ const { fetchAllJobs } = require("./scraper");
 const { formatSingleJob, getPKT } = require("./formatter");
 
 // ── Channel JID (confirmed by Wasi developer) ─────────────────────────────────
-const CHANNEL_JID = "0029Vb7fEeo59PwPuRwAae2J@newsletter";
+const CHANNEL_JID = "120363425538472027@newsletter";
 const MSG_DELAY = 4000;
 
 let task = null;
