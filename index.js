@@ -10,7 +10,7 @@ const {
   fetchLatestBaileysVersion,
   DisconnectReason,
   makeCacheableSignalKeyStore,
-  Browsers,
+
   delay,
 } = require("@whiskeysockets/baileys");
 
@@ -107,12 +107,14 @@ async function startBot() {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, logger),
       },
-      browser: Browsers.macOS("Chrome"),
+      browser: ["Linux", "Chrome", "20.0.00"],
       defaultQueryTimeoutMs: undefined,
       connectTimeoutMs: 60000,
       keepAliveIntervalMs: 25000,
       syncFullHistory: false,
-      markOnlineOnConnect: false,
+      emitOwnEvents: true,
+      fireInitQueries: true,
+      markOnlineOnConnect: true,
       generateHighQualityLinkPreview: false,
     });
 
@@ -145,10 +147,10 @@ async function startBot() {
     sock.ev.on("creds.update", saveCreds);
 
     sock.ev.on("messages.upsert", async ({ messages, type }) => {
-      if (type !== "notify") return;
+      
       for (const msg of messages) {
         try {
-          if (msg.key.fromMe) continue;
+          
           if (msg.key.remoteJid === "status@broadcast") continue;
           if (msg.key.remoteJid?.endsWith("@newsletter")) continue;
           await handleMessage(sock, msg, getUptime);
@@ -168,3 +170,4 @@ async function startBot() {
 console.log("🇵🇰 Pakistan Jobs Bot v4.0 — Starting...");
 restoreSession();
 startBot();
+// getMessage stub for message retry
