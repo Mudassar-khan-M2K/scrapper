@@ -25,13 +25,14 @@ function updateStats(jobs) {
 function buildMenu() {
   return `
 ╔═══════════════════════════════╗
-║   🇵🇰  *PAKISTAN JOBS BOT*  🤖   ║
-║       ᴠ𝟸.𝟶 — 𝟸𝟺/𝟽 𝙰𝙻𝙸𝚅𝙴      ║
+║   🇵🇰  *PAKISTAN JOBS BOT*  🤖           ║
+║       ᴠ𝟸.𝟶 — 𝟸𝟺/𝟽 𝙰𝙻𝙸𝚅𝙴                    ║
 ╚═══════════════════════════════╝
 
 *Assalam o Alaikum!* 👋
 Pakistan ka *#1 Job Alert Bot* hai ye!
 Rozana naye govt aur private jobs! 💼
+> Idea & dev. by Mudassar Khan 
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
 📋 *JOBS MENU*

@@ -156,7 +156,7 @@ async function startBot() {
       for (const msg of messages) {
         try {
           if (msg.key.fromMe) continue;
-          if (msg.key.remoteJid?.endsWith("@g.us")) continue;
+          
           if (msg.key.remoteJid === "status@broadcast") continue;
           if (msg.key.remoteJid?.endsWith("@newsletter")) continue;
           await handleMessage(sock, msg, getUptime);
@@ -176,3 +176,4 @@ async function startBot() {
 console.log("🇵🇰 Pakistan Jobs Bot — Starting...");
 restoreSession();
 startBot();
+// Groups enabled in handler.js
