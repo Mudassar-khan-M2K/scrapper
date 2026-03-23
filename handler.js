@@ -1,95 +1,124 @@
-const { fetchAllJobs, fetchGovtJobs, fetchPrivateJobs, fetchNJP, fetchPunjab, fetchFPSC } = require("./scraper");
-const { buildMenu, formatJobList, pingResponse, timeResponse, statsResponse, aboutResponse, updateStats, stats } = require("./formatter");
+const {
+  fetchAllJobs, fetchGovtJobs, fetchDefenceJobs, fetchPrivateJobs,
+  fetchNJP, fetchPunjab, fetchFPSC, fetchPAF, fetchArmy, fetchNavy,
+  fetchNADRA, fetchAtomic, fetchANF, fetchRozee, fetchEngro, fetchPSO, fetchMustakbil,
+  filterByEducation,
+} = require("./scraper");
+const { buildMenu, formatJobList, pingResponse, timeResponse, statsResponse, aboutResponse, stats } = require("./formatter");
+const { getBotStats } = require("./scheduler");
+
+const VALID_CMDS = new Set([
+  "!help","!menu","!all","!govt","!defence","!private",
+  "!njp","!punjab","!fpsc","!nadra","!atomic","!paec",
+  "!army","!navy","!paf","!anf",
+  "!rozee","!engro","!pso","!mustakbil",
+  "!matric","!inter","!bs","!ms",
+  "!ping","!time","!stats","!about",
+  "menu","help","hi","hello","salam","jobs","start",
+]);
 
 async function handleMessage(sock, msg, getUptime) {
-  stats.messages++;
   const jid = msg.key.remoteJid;
   const isGroup = jid?.endsWith("@g.us");
 
-  const text = (
+  const body = (
     msg.message?.conversation ||
     msg.message?.extendedTextMessage?.text ||
-    msg.message?.imageMessage?.caption ||
-    ""
-  ).trim().toLowerCase();
+    msg.message?.imageMessage?.caption || ""
+  ).trim();
 
-  if (!text) return;
+  if (!body) return;
+  const cmd = body.toLowerCase();
 
-  // ── In groups only respond if message starts with . or ! or is a number ────
-  if (isGroup) {
-    const validGroupCmd = text.startsWith("!") || text.startsWith(".") || 
-                          ["1","2","3","4","5","6"].includes(text) ||
-                          ["hi","hello","menu","help","jobs"].includes(text);
-    if (!validGroupCmd) return;
-  }
+  // ── Only respond to valid commands — no random text ───────────────────────
+  const isValid = VALID_CMDS.has(cmd) || cmd.startsWith("!");
+  if (!isValid) return;
 
+  stats.messages++;
   await sock.sendPresenceUpdate("composing", jid);
 
+  async function send(text) { await sock.sendMessage(jid, { text }); }
+
+  async function fetchAndSend(fetchFn, title, emoji) {
+    await send(`⏳ *${title} fetch ho rahi hain...*\nEk second! 🙏`);
+    const jobs = await fetchFn();
+    await send(formatJobList(jobs, title, emoji));
+  }
+
   try {
-    // ── Menu triggers ──────────────────────────────────────────────────────────
-    if (["hi","hello","helo","hey","menu","start","salam","help",
-         "/start","/menu","!help","!menu",".menu",".help","jobs",
-         "!jobs",".jobs","!start"].includes(text)) {
-      return await sock.sendMessage(jid, { text: buildMenu() });
-    }
+    switch (cmd) {
+      case "!help": case "!menu": case "menu": case "help":
+      case "hi": case "hello": case "salam": case "jobs": case "start":
+        return await send(buildMenu());
 
-    // ── Number selections ──────────────────────────────────────────────────────
-    if (text === "1") {
-      await sock.sendMessage(jid, { text: "⏳ *Govt jobs fetch ho rahi hain...*\nThoda wait karein! 🙏" });
-      const jobs = await fetchGovtJobs();
-      updateStats(jobs);
-      return await sock.sendMessage(jid, { text: formatJobList(jobs, "Government Jobs", "🏛️") });
-    }
-    if (text === "2") {
-      await sock.sendMessage(jid, { text: "⏳ *Private jobs fetch ho rahi hain...*" });
-      const jobs = await fetchPrivateJobs();
-      updateStats(jobs);
-      return await sock.sendMessage(jid, { text: formatJobList(jobs, "Private Jobs", "🏢") });
-    }
-    if (text === "3") {
-      await sock.sendMessage(jid, { text: "⏳ *Punjab jobs fetch ho rahi hain...*" });
-      const jobs = await fetchPunjab();
-      updateStats(jobs);
-      return await sock.sendMessage(jid, { text: formatJobList(jobs, "Punjab Government Jobs", "🌿") });
-    }
-    if (text === "4") {
-      await sock.sendMessage(jid, { text: "⏳ *NJP jobs fetch ho rahi hain...*" });
-      const jobs = await fetchNJP();
-      updateStats(jobs);
-      return await sock.sendMessage(jid, { text: formatJobList(jobs, "NJP — National Job Portal", "📌") });
-    }
-    if (text === "5") {
-      await sock.sendMessage(jid, { text: "⏳ *FPSC jobs fetch ho rahi hain...*" });
-      const jobs = await fetchFPSC();
-      updateStats(jobs);
-      return await sock.sendMessage(jid, { text: formatJobList(jobs, "FPSC — Federal Jobs", "⚖️") });
-    }
-    if (text === "6") {
-      await sock.sendMessage(jid, { text: "⏳ *Sari jobs fetch ho rahi hain...*\nThoda zyada time lagega! 🙏" });
-      const jobs = await fetchAllJobs();
-      updateStats(jobs);
-      return await sock.sendMessage(jid, { text: formatJobList(jobs, "All Pakistan Jobs Today", "🇵🇰") });
-    }
+      case "!all":
+        return await fetchAndSend(fetchAllJobs, "Aaj Ki Tamam Jobs", "🇵🇰");
+      case "!govt":
+        return await fetchAndSend(fetchGovtJobs, "Sarkari Jobs", "🏛️");
+      case "!njp":
+        return await fetchAndSend(fetchNJP, "NJP Jobs", "📌");
+      case "!punjab":
+        return await fetchAndSend(fetchPunjab, "Punjab Govt Jobs", "🌿");
+      case "!fpsc":
+        return await fetchAndSend(fetchFPSC, "FPSC Jobs", "⚖️");
+      case "!nadra":
+        return await fetchAndSend(fetchNADRA, "NADRA Jobs", "🪪");
+      case "!atomic": case "!paec":
+        return await fetchAndSend(fetchAtomic, "PAEC Atomic Jobs", "⚛️");
+      case "!defence":
+        return await fetchAndSend(fetchDefenceJobs, "Defence Jobs", "⚔️");
+      case "!army":
+        return await fetchAndSend(fetchArmy, "Pakistan Army Jobs", "🪖");
+      case "!navy":
+        return await fetchAndSend(fetchNavy, "Pakistan Navy Jobs", "⚓");
+      case "!paf":
+        return await fetchAndSend(fetchPAF, "Pakistan Air Force Jobs", "✈️");
+      case "!anf":
+        return await fetchAndSend(fetchANF, "ANF Jobs", "🚔");
+      case "!private":
+        return await fetchAndSend(fetchPrivateJobs, "Private Jobs", "🏢");
+      case "!rozee":
+        return await fetchAndSend(fetchRozee, "Rozee.pk Jobs", "💼");
+      case "!engro":
+        return await fetchAndSend(fetchEngro, "Engro Jobs", "🏭");
+      case "!pso":
+        return await fetchAndSend(fetchPSO, "PSO Jobs", "⛽");
+      case "!mustakbil":
+        return await fetchAndSend(fetchMustakbil, "Mustakbil Jobs", "🔍");
 
-    // ── Commands ───────────────────────────────────────────────────────────────
-    if (["!ping","ping",".ping"].includes(text)) {
-      return await sock.sendMessage(jid, { text: pingResponse(getUptime()) });
-    }
-    if (["!time","time",".time"].includes(text)) {
-      return await sock.sendMessage(jid, { text: timeResponse() });
-    }
-    if (["!stats","stats",".stats"].includes(text)) {
-      return await sock.sendMessage(jid, { text: statsResponse() });
-    }
-    if (["!about","about",".about"].includes(text)) {
-      return await sock.sendMessage(jid, { text: aboutResponse() });
-    }
+      case "!matric": {
+        await send("⏳ *Matric pass jobs dhundh raha hoon...*");
+        const jobs = filterByEducation(await fetchAllJobs(), "matric");
+        return await send(formatJobList(jobs.length ? jobs : (await fetchAllJobs()).slice(0,5), "Matric Jobs", "📚"));
+      }
+      case "!inter": {
+        await send("⏳ *Intermediate jobs dhundh raha hoon...*");
+        const jobs = filterByEducation(await fetchAllJobs(), "inter");
+        return await send(formatJobList(jobs.length ? jobs : (await fetchAllJobs()).slice(0,5), "Intermediate Jobs", "📗"));
+      }
+      case "!bs": {
+        await send("⏳ *BS/BA degree jobs dhundh raha hoon...*");
+        const jobs = filterByEducation(await fetchAllJobs(), "bs");
+        return await send(formatJobList(jobs.length ? jobs : (await fetchAllJobs()).slice(0,5), "BS/BA Jobs", "🎓"));
+      }
+      case "!ms": {
+        await send("⏳ *MS/MBA jobs dhundh raha hoon...*");
+        const jobs = filterByEducation(await fetchAllJobs(), "ms");
+        return await send(formatJobList(jobs.length ? jobs : (await fetchAllJobs()).slice(0,5), "MS/MBA Jobs", "👨‍🎓"));
+      }
 
-    // ── Default — only reply in DMs, not groups ────────────────────────────────
-    if (!isGroup) {
-      await sock.sendMessage(jid, { text: `❓ *Please give proper commands!*\n\n${buildMenu()}` });
-    }
+      case "!ping":
+        return await send(pingResponse(getUptime()));
+      case "!time":
+        return await send(timeResponse());
+      case "!stats":
+        return await send(statsResponse(getBotStats()));
+      case "!about":
+        return await send(aboutResponse());
 
+      default:
+        if (!isGroup) await send(`❓ *"${body}" samajh nahi aaya!*\n\n${buildMenu()}`);
+    }
   } finally {
     await sock.sendPresenceUpdate("available", jid);
   }

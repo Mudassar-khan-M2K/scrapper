@@ -15,67 +15,64 @@ const {
 } = require("@whiskeysockets/baileys");
 
 const { handleMessage } = require("./handler");
-const { startScheduler, stopScheduler } = require("./scheduler");
+const { startScheduler, stopScheduler, getBotStats } = require("./scheduler");
 
-// ── Express keep-alive ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPRESS DASHBOARD SERVER
+// ─────────────────────────────────────────────────────────────────────────────
 const app = express();
-app.get("/", (_, res) => res.send("🇵🇰 Pakistan Jobs Bot is ALIVE!"));
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (_, res) => res.sendFile(path.join(__dirname, "public", "dashboard.html")));
+
+app.get("/api/stats", (_, res) => {
+  const s = getBotStats();
+  res.json({
+    status: botConnected ? "online" : "offline",
+    uptime: getUptime(),
+    ...s,
+    startTime: new Date(startTime).toISOString(),
+    phone: process.env.PHONE_NUMBER || "923347726270",
+    channel: "0029Vb7fEeo59PwPuRwAae2J",
+  });
+});
+
 app.get("/health", (_, res) => res.json({ status: "ok", uptime: process.uptime() }));
+
 app.listen(process.env.PORT || 3000, () =>
-  console.log(`[Server] Keep-alive on port ${process.env.PORT || 3000}`)
+  console.log(`[Dashboard] Running on port ${process.env.PORT || 3000}`)
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION RESTORE
+// ─────────────────────────────────────────────────────────────────────────────
 const AUTH_DIR = "/tmp/auth_info";
 
-// ── Restore session — handles both gzip and plain base64 ──────────────────────
 function restoreSession() {
   const SESSION_ID = process.env.SESSION_ID;
-  if (!SESSION_ID) {
-    console.error("[Session] No SESSION_ID in environment!");
-    return false;
-  }
-
+  if (!SESSION_ID) { console.error("[Session] No SESSION_ID!"); return false; }
   try {
     if (!fs.existsSync(AUTH_DIR)) fs.mkdirSync(AUTH_DIR, { recursive: true });
-
-    // Strip prefix like "Gifted~" or "ARSLAN-MD~"
     const raw = SESSION_ID.includes("~") ? SESSION_ID.split("~").slice(1).join("~") : SESSION_ID;
     const buffer = Buffer.from(raw, "base64");
-
-    // Detect gzip magic bytes: 0x1f 0x8b
     const isGzip = buffer[0] === 0x1f && buffer[1] === 0x8b;
-
-    let decoded;
-    if (isGzip) {
-      console.log("[Session] Detected gzip compressed session...");
-      decoded = zlib.gunzipSync(buffer).toString("utf-8");
-    } else {
-      decoded = buffer.toString("utf-8");
-    }
-
+    const decoded = isGzip ? zlib.gunzipSync(buffer).toString("utf-8") : buffer.toString("utf-8");
     const parsed = JSON.parse(decoded);
-
-    // Multi-file format: { "creds.json": "...", "app-state-...": "..." }
     if (parsed["creds.json"]) {
-      for (const [filename, content] of Object.entries(parsed)) {
-        fs.writeFileSync(path.join(AUTH_DIR, filename), content, "utf-8");
-      }
-      console.log(`[Session] ✅ Restored ${Object.keys(parsed).length} session files`);
-      return true;
+      for (const [f, c] of Object.entries(parsed)) fs.writeFileSync(path.join(AUTH_DIR, f), c, "utf-8");
+      console.log(`[Session] ✅ Restored ${Object.keys(parsed).length} files`);
+    } else {
+      fs.writeFileSync(path.join(AUTH_DIR, "creds.json"), JSON.stringify(parsed), "utf-8");
+      console.log("[Session] ✅ Restored creds.json");
     }
-
-    // Single creds.json format
-    fs.writeFileSync(path.join(AUTH_DIR, "creds.json"), JSON.stringify(parsed), "utf-8");
-    console.log("[Session] ✅ Restored creds.json");
     return true;
-
-  } catch (err) {
-    console.error("[Session] Restore failed:", err.message);
-    return false;
-  }
+  } catch (err) { console.error("[Session] Failed:", err.message); return false; }
 }
 
-// ── Bot state ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// BOT STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let botConnected = false;
 let reconnectCount = 0;
 const startTime = Date.now();
 
@@ -87,12 +84,14 @@ function getUptime() {
   return `${h}h ${m}m ${s}s`;
 }
 
-// ── Start bot ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// START BOT
+// ─────────────────────────────────────────────────────────────────────────────
 async function startBot() {
   try {
     if (!fs.existsSync(path.join(AUTH_DIR, "creds.json"))) {
       const ok = restoreSession();
-      if (!ok) { console.error("[Bot] No valid session. Exiting."); return; }
+      if (!ok) { console.error("[Bot] No session. Exiting."); return; }
     }
 
     const { version } = await fetchLatestBaileysVersion();
@@ -100,8 +99,7 @@ async function startBot() {
     const logger = pino({ level: "silent" });
 
     const sock = makeWASocket({
-      version,
-      logger,
+      version, logger,
       printQRInTerminal: false,
       auth: {
         creds: state.creds,
@@ -118,33 +116,26 @@ async function startBot() {
 
     sock.ev.on("connection.update", async (update) => {
       const { connection, lastDisconnect } = update;
-
       if (connection === "connecting") console.log("[Bot] Connecting...");
-
       if (connection === "open") {
         console.log("[Bot] ✅ WhatsApp Connected!");
+        botConnected = true;
         reconnectCount = 0;
-        setTimeout(() => {
-          startScheduler(sock);
-          console.log("[Scheduler] ✅ Started!");
-        }, 30000);
+        setTimeout(() => startScheduler(sock), 30000);
       }
-
       if (connection === "close") {
+        botConnected = false;
         stopScheduler();
         const code = lastDisconnect?.error?.output?.statusCode;
         console.log(`[Bot] Disconnected — code: ${code}`);
         if (code === DisconnectReason.loggedOut) {
-          console.log("[Bot] Logged out — restoring from SESSION_ID...");
           try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch (_) {}
           restoreSession();
           await delay(5000);
           startBot();
         } else {
           reconnectCount++;
-          const wait = Math.min(5000 * reconnectCount, 30000);
-          console.log(`[Bot] Reconnecting in ${wait / 1000}s...`);
-          setTimeout(startBot, wait);
+          setTimeout(startBot, Math.min(5000 * reconnectCount, 30000));
         }
       }
     });
@@ -156,12 +147,11 @@ async function startBot() {
       for (const msg of messages) {
         try {
           if (msg.key.fromMe) continue;
-          
           if (msg.key.remoteJid === "status@broadcast") continue;
           if (msg.key.remoteJid?.endsWith("@newsletter")) continue;
           await handleMessage(sock, msg, getUptime);
         } catch (err) {
-          console.error("[Messages] Error:", err.message);
+          console.error("[Messages]", err.message);
         }
       }
     });
@@ -173,7 +163,6 @@ async function startBot() {
   }
 }
 
-console.log("🇵🇰 Pakistan Jobs Bot — Starting...");
+console.log("🇵🇰 Pakistan Jobs Bot v4.0 — Starting...");
 restoreSession();
 startBot();
-// Groups enabled in handler.js

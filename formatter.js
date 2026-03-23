@@ -1,150 +1,140 @@
 function getPKT() {
   return new Date().toLocaleString("en-PK", {
-    timeZone: "Asia/Karachi",
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
+    timeZone: "Asia/Karachi", weekday: "short", year: "numeric",
+    month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true,
   });
 }
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
-const stats = { total: 0, govt: 0, private: 0, messages: 0, lastPost: null };
+const stats = { messages: 0 };
 
-function updateStats(jobs) {
-  stats.total += jobs.length;
-  stats.govt += jobs.filter(j => j.type === "Govt").length;
-  stats.private += jobs.filter(j => j.type === "Private").length;
-  stats.lastPost = getPKT();
+// ── Single job — very detailed — for channel (1 job = 1 message) ──────────────
+function formatSingleJob(job) {
+  const typeIcon =
+    job.category === "Defence" ? "⚔️" :
+    job.type === "Govt" ? "🏛️" : "🏢";
+
+  const typeBadge =
+    job.category === "Defence" ? "DEFENCE JOB" :
+    job.type === "Govt" ? "SARKARI JOB" : "PRIVATE JOB";
+
+  return `${typeIcon} *${typeBadge}* ${typeIcon}
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💼 *Post:* ${job.title}
+🏢 *Organization:* ${job.org}
+📍 *Location:* ${job.location}
+🎓 *Education:* ${job.education}
+👥 *Gender:* ${job.gender || "Male / Female"}
+📋 *Requirements:* ${job.requirements || "As per advertisement"}
+📅 *Last Date:* *${job.deadline}*
+📌 *Source:* ${job.source}
+
+🔗 *Apply Here:*
+${job.link}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🤖 _Pakistan Jobs Bot v4.0_
+🇵🇰 _Developed by Mudassar Khan_
+📲 _+92 347 7262704_
+🔔 _Har 20 minute mein naye jobs!_`;
 }
 
-// ── Main menu ─────────────────────────────────────────────────────────────────
+// ── Menu ──────────────────────────────────────────────────────────────────────
 function buildMenu() {
-  return `
-╔═══════════════════════════════╗
-║   🇵🇰  *PAKISTAN JOBS BOT*  🤖           ║
-║       ᴠ𝟸.𝟶 — 𝟸𝟺/𝟽 𝙰𝙻𝙸𝚅𝙴                    ║
-╚═══════════════════════════════╝
+  return `╔══════════════════════════════════╗
+║  🇵🇰  *PAKISTAN JOBS BOT v4.0* 🤖  ║
+║   *Developed by Mudassar Khan*    ║
+║      📲 +92 347 7262704           ║
+╚══════════════════════════════════╝
 
 *Assalam o Alaikum!* 👋
-Pakistan ka *#1 Job Alert Bot* hai ye!
-Rozana naye govt aur private jobs! 💼
-> Idea & dev. by Mudassar Khan 
+Rozana naye *Govt + Defence + Private* jobs!
 
-━━━━━━━━━━━━━━━━━━━━━━━━
-📋 *JOBS MENU*
-━━━━━━━━━━━━━━━━━━━━━━━━
-1️⃣  🏛️  *Govt Jobs* — Latest Sarkari
-2️⃣  🏢  *Private Jobs* — Corporate
-3️⃣  🌿  *Punjab Govt Jobs*
-4️⃣  📌  *NJP* — National Job Portal
-5️⃣  ⚖️  *FPSC* — Federal Jobs
-6️⃣  🇵🇰  *All Jobs Today*
-━━━━━━━━━━━━━━━━━━━━━━━━
-⚙️  *BOT COMMANDS*
-━━━━━━━━━━━━━━━━━━━━━━━━
-🏓  *!ping*   — Bot status check
-🕐  *!time*   — Pakistan time
-📊  *!stats*  — Bot statistics
-ℹ️   *!about*  — About this bot
-❓  *!help*   — Show this menu
-━━━━━━━━━━━━━━━━━━━━━━━━
-💬 *Reply 1-6* ya koi bhi command
-📢 *Auto updates har 20 minute!*
-⏰ ${getPKT()}
-━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏛️ *SARKARI JOBS*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+!govt     — Tamam Sarkari Jobs
+!njp      — National Job Portal
+!punjab   — Punjab Government
+!fpsc     — FPSC Federal Jobs
+!nadra    — NADRA Jobs
+!atomic   — PAEC Atomic Jobs
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚔️ *DEFENCE JOBS*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+!defence  — Tamam Defence Jobs
+!army     — Pakistan Army
+!navy     — Pakistan Navy
+!paf      — Pakistan Air Force
+!anf      — Anti Narcotics Force
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏢 *PRIVATE JOBS*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+!private  — Tamam Private Jobs
+!rozee    — Rozee.pk
+!engro    — Engro Corporation
+!pso      — Pakistan State Oil
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎓 *TALEEM KE MUTABIQ*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+!matric   — Matric Pass Jobs
+!inter    — Intermediate Jobs
+!bs       — BS/BA Degree Jobs
+!ms       — MS/MBA/MA Jobs
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️ *BOT COMMANDS*
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+!all      — Aaj ki tamam jobs
+!ping     — Bot status
+!time     — Pakistan time
+!stats    — Statistics
+!about    — Bot info
+!help     — Ye menu
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏰ _${getPKT()}_
+🔔 _Har 20 minute mein auto update!_
+━━━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
 }
 
-// ── Format job list ───────────────────────────────────────────────────────────
+// ── Job list for DMs/groups ───────────────────────────────────────────────────
 function formatJobList(jobs, title, emoji) {
   if (!jobs || jobs.length === 0) {
-    return `${emoji} *${title}*\n\n❌ Abhi koi naye jobs nahi mili.\nThodi der baad dobara try karein!\n\n📢 _Auto update har 20 minute hoti hai_`;
+    return `${emoji} *${title}*\n\n❌ _Abhi koi jobs nahi mili._\nThodi der baad try karein!\n\n🔔 _Har 20 minute mein auto update_`;
   }
-
   let msg = `${emoji} *${title.toUpperCase()}*\n`;
-  msg += `🕐 _${getPKT()}_\n`;
-  msg += `📊 _${jobs.length} jobs mili hain_\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-  jobs.forEach((job, i) => {
-    const icon = job.type === "Govt" ? "🏛️" : "🏢";
-    const badge = job.type === "Govt" ? "🟢 *GOVT*" : "🔵 *PRIVATE*";
-    msg += `${icon} ${badge} — *Job #${i + 1}*\n`;
-    msg += `━━━━━━━━━━━━\n`;
-    msg += `💼 *Post:* ${job.title}\n`;
-    msg += `🏢 *Organization:* ${job.org}\n`;
-    msg += `📍 *Location:* ${job.location}\n`;
-    msg += `📅 *Last Date:* ${job.deadline}\n`;
-    msg += `📌 *Source:* ${job.source}\n`;
-    msg += `🔗 *Apply:* ${job.link}\n\n`;
-  });
-
-  msg += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `🤖 _Pakistan Jobs Bot_\n`;
-  msg += `📢 _Apne doston ko bhi share karein!_ 🇵🇰`;
-  return msg;
-}
-
-// ── Channel post format ───────────────────────────────────────────────────────
-function formatChannelPost(jobs) {
-  const govt = jobs.filter(j => j.type === "Govt");
-  const priv = jobs.filter(j => j.type === "Private");
-
-  let msg = `🇵🇰 *PAKISTAN JOBS UPDATE* 🔔\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `🕐 *${getPKT()}*\n`;
-  msg += `📊 *${jobs.length} naye jobs* aaj ke liye!\n`;
+  msg += `🕐 _${getPKT()}_   📊 _${jobs.length} jobs_\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-  if (govt.length > 0) {
-    msg += `🏛️ *SARKARI JOBS (GOVT) — ${govt.length}*\n\n`;
-    govt.slice(0, 6).forEach((job, i) => {
-      msg += `*${i + 1}. ${job.title}*\n`;
-      msg += `   🏢 ${job.org}\n`;
-      msg += `   📍 ${job.location}\n`;
-      msg += `   📅 Last Date: *${job.deadline}*\n`;
-      msg += `   🔗 ${job.link}\n\n`;
-    });
-  }
-
-  if (priv.length > 0) {
-    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🏢 *PRIVATE JOBS — ${priv.length}*\n\n`;
-    priv.slice(0, 6).forEach((job, i) => {
-      msg += `*${i + 1}. ${job.title}*\n`;
-      msg += `   🏢 ${job.org}\n`;
-      msg += `   📍 ${job.location}\n`;
-      msg += `   📅 Last Date: *${job.deadline}*\n`;
-      msg += `   🔗 ${job.link}\n\n`;
-    });
-  }
-
+  jobs.forEach((job, i) => {
+    const icon = job.category === "Defence" ? "⚔️" : job.type === "Govt" ? "🏛️" : "🏢";
+    msg += `${icon} *${i + 1}. ${job.title}*\n`;
+    msg += `┌ 🏢 ${job.org}\n`;
+    msg += `├ 📍 ${job.location}\n`;
+    msg += `├ 🎓 ${job.education}\n`;
+    msg += `├ 👥 ${job.gender || "Male/Female"}\n`;
+    msg += `├ 📅 Last Date: *${job.deadline}*\n`;
+    msg += `└ 🔗 ${job.link}\n\n`;
+  });
   msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `🤖 *Pakistan Jobs Bot*\n`;
-  msg += `📢 *Channel join karein aur share karein!*\n`;
-  msg += `🔔 _Har 20 minute mein update hota hai_\n`;
-  msg += `\n_NJP • Punjab • FPSC • Rozee • Mustakbil_`;
+  msg += `🤖 _Pakistan Jobs Bot v4.0_\n`;
+  msg += `🇵🇰 _Developed by Mudassar Khan • +92 347 7262704_`;
   return msg;
 }
 
 // ── Command responses ─────────────────────────────────────────────────────────
 function pingResponse(uptime) {
-  return `🏓 *Pong!*\n\n✅ *Bot bilkul theek hai!*\n\n⏱️ *Uptime:* ${uptime}\n🕐 *Time:* ${getPKT()}\n🌐 *Status:* Online 24/7\n\n_Pakistan Jobs Bot — Always Running!_ 🇵🇰`;
+  return `🏓 *Pong!* ✅\n\n⏱️ *Uptime:* ${uptime}\n🕐 *Time:* ${getPKT()}\n🌐 *Status:* 🟢 Online\n📡 *Sources:* 13 websites\n\n🤖 _Pakistan Jobs Bot v4.0_\n🇵🇰 _by Mudassar Khan • +92 347 7262704_`;
 }
 
 function timeResponse() {
-  return `🕐 *PAKISTAN STANDARD TIME*\n\n📅 *${getPKT()}*\n\n🌍 Timezone: *PKT (UTC+5)*\n🇵🇰 Karachi / Islamabad / Lahore`;
+  return `🕐 *PAKISTAN STANDARD TIME*\n\n📅 *${getPKT()}*\n\n🌍 PKT (UTC+5) — Karachi • Lahore • Islamabad\n\n🤖 _Pakistan Jobs Bot v4.0_`;
 }
 
-function statsResponse() {
-  return `📊 *BOT STATISTICS*\n━━━━━━━━━━━━━━━━━━━\n📌 *Total Jobs Fetched:* ${stats.total}\n🏛️ *Govt Jobs:* ${stats.govt}\n🏢 *Private Jobs:* ${stats.private}\n💬 *Messages Handled:* ${stats.messages}\n🕐 *Last Post:* ${stats.lastPost || "Not yet"}\n━━━━━━━━━━━━━━━━━━━\n🤖 *Pakistan Jobs Bot v2.0*\n📢 _Powered by 5 Job Sites_`;
+function statsResponse(botStats) {
+  return `📊 *BOT STATISTICS*\n━━━━━━━━━━━━━━━━━━━\n🏛️ *Govt Jobs Posted:* ${botStats.govtPosted || 0}\n⚔️ *Defence Jobs:* ${botStats.defencePosted || 0}\n🏢 *Private Jobs:* ${botStats.privatePosted || 0}\n📌 *Total Posted:* ${botStats.totalPosted || 0}\n💬 *Commands:* ${stats.messages}\n🕐 *Last Update:* ${botStats.lastPost || "Not yet"}\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n📡 NJP•Punjab•FPSC•NADRA•PAEC•Army•Navy•PAF•ANF•Rozee•Engro•PSO•Mustakbil\n\n🤖 _Pakistan Jobs Bot v4.0_\n🇵🇰 _by Mudassar Khan • +92 347 7262704_`;
 }
 
 function aboutResponse() {
-  return `🤖 *PAKISTAN JOBS BOT v2.0*\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n🇵🇰 *Pakistan ka #1 Job Alert Bot!*\n\n📋 *Job Sources:*\n   📌 NJP — njp.gov.pk\n   🌿 Punjab — punjab.gov.pk\n   ⚖️ FPSC — fpsc.gov.pk\n   🏢 Rozee — rozee.pk\n   💼 Mustakbil — mustakbil.com\n\n⚡ *Features:*\n   • Har 20 minute mein auto update\n   • Govt + Private jobs\n   • 24/7 online\n   • Fast & reliable\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n💬 *!help* type karein menu ke liye\n📢 Doston ko share zaroor karein! 🙏`;
+  return `🤖 *PAKISTAN JOBS BOT v4.0*\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n👨‍💻 *Developer:* Mudassar Khan\n📲 *Contact:* +92 347 7262704\n\n🇵🇰 *Pakistan ka #1 Automated Job Alert Bot!*\n\n📋 *13 Sources:*\n🏛️ NJP • Punjab • FPSC • NADRA • PAEC\n⚔️ Army • Navy • PAF • ANF\n🏢 Rozee • Engro • PSO • Mustakbil\n\n🎓 *Education Filter:*\n!matric • !inter • !bs • !ms\n\n⚡ *Features:*\n• Har 20 min auto update\n• 1 job = 1 message on channel\n• Gender + Education + Requirements\n• Accurate apply links\n• 24/7 online\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n💬 *!help* — Full menu\n📢 Doston ko share karein! 🙏`;
 }
 
-module.exports = { buildMenu, formatJobList, formatChannelPost, pingResponse, timeResponse, statsResponse, aboutResponse, updateStats, stats, getPKT };
+module.exports = { buildMenu, formatSingleJob, formatJobList, pingResponse, timeResponse, statsResponse, aboutResponse, stats, getPKT };
